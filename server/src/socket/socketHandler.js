@@ -8,6 +8,22 @@ function generateRoomCode() {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
+// Generate bot character
+function generateBotCharacter(botNumber) {
+  const skinColors = ['#FFE0BD', '#F1C27D', '#E0AC69', '#C68642', '#8D5524', '#6B4423'];
+  const hairStyles = ['short', 'long', 'curly', 'bald', 'mohawk'];
+  const hairColors = ['#000000', '#4A3728', '#8B4513', '#D2691E', '#FFD700', '#FF0000', '#0000FF'];
+
+  return {
+    id: `bot_${Date.now()}_${botNumber}`,
+    name: `Bot ${botNumber}`,
+    isBot: true,
+    skinColor: skinColors[Math.floor(Math.random() * skinColors.length)],
+    hairStyle: hairStyles[Math.floor(Math.random() * hairStyles.length)],
+    hairColor: hairColors[Math.floor(Math.random() * hairColors.length)]
+  };
+}
+
 // Check if matchmaking queue has enough players (6 for 3v3)
 function checkMatchmaking(io) {
   if (matchmakingQueue.length >= 6) {
@@ -582,7 +598,170 @@ function handleSocketConnection(io) {
       });
     });
 
-    // 11. Ball hit event
+    // 11. Add bot to room
+    socket.on('add_bot', () => {
+      const user = users.get(socket.id);
+      if (!user || !user.roomId) {
+        socket.emit('error', { message: '방에 있지 않습니다' });
+        return;
+      }
+
+      const room = rooms.get(user.roomId);
+      if (!room) return;
+
+      // Only host can add bots
+      if (room.host !== socket.id) {
+        socket.emit('error', { message: '방장만 봇을 추가할 수 있습니다' });
+        return;
+      }
+
+      // Check room capacity
+      if (room.players.length >= 6) {
+        socket.emit('error', { message: '방이 가득 찼습니다 (최대 6명)' });
+        return;
+      }
+
+      // Generate bot
+      const botNumber = room.players.filter(p => p.isBot).length + 1;
+      const botCharacter = generateBotCharacter(botNumber);
+
+      const botPlayer = {
+        socketId: botCharacter.id,
+        userId: botCharacter.id,
+        characterId: botCharacter.id,
+        characterName: botCharacter.name,
+        isBot: true,
+        character: botCharacter,
+        team: null
+      };
+
+      room.players.push(botPlayer);
+
+      // Notify all players
+      io.to(room.roomId).emit('bot_added', {
+        bot: botPlayer,
+        players: room.players
+      });
+
+      console.log(`[Bot] ${botCharacter.name} added to room ${room.code}`);
+    });
+
+    // 12. Remove bot from room
+    socket.on('remove_bot', ({ botId }) => {
+      const user = users.get(socket.id);
+      if (!user || !user.roomId) {
+        socket.emit('error', { message: '방에 있지 않습니다' });
+        return;
+      }
+
+      const room = rooms.get(user.roomId);
+      if (!room) return;
+
+      // Only host can remove bots
+      if (room.host !== socket.id) {
+        socket.emit('error', { message: '방장만 봇을 제거할 수 있습니다' });
+        return;
+      }
+
+      // Find and remove bot
+      const botIndex = room.players.findIndex(p => p.socketId === botId && p.isBot);
+      if (botIndex === -1) {
+        socket.emit('error', { message: '봇을 찾을 수 없습니다' });
+        return;
+      }
+
+      const bot = room.players[botIndex];
+      room.players.splice(botIndex, 1);
+
+      // Remove from teams
+      room.teamA = room.teamA.filter(p => p.socketId !== botId);
+      room.teamB = room.teamB.filter(p => p.socketId !== botId);
+
+      // Notify all players
+      io.to(room.roomId).emit('bot_removed', {
+        botId,
+        players: room.players,
+        teamA: room.teamA,
+        teamB: room.teamB
+      });
+
+      console.log(`[Bot] ${bot.characterName} removed from room ${room.code}`);
+    });
+
+    // 13. Assign bot to team
+    socket.on('assign_bot_team', ({ botId, team }) => {
+      const user = users.get(socket.id);
+      if (!user || !user.roomId) {
+        socket.emit('error', { message: '방에 있지 않습니다' });
+        return;
+      }
+
+      const room = rooms.get(user.roomId);
+      if (!room) return;
+
+      // Only host can assign bot teams
+      if (room.host !== socket.id) {
+        socket.emit('error', { message: '방장만 봇 팀을 배치할 수 있습니다' });
+        return;
+      }
+
+      if (team !== 'A' && team !== 'B') {
+        socket.emit('error', { message: '잘못된 팀입니다' });
+        return;
+      }
+
+      // Find bot
+      const botIndex = room.players.findIndex(p => p.socketId === botId && p.isBot);
+      if (botIndex === -1) {
+        socket.emit('error', { message: '봇을 찾을 수 없습니다' });
+        return;
+      }
+
+      // Remove from current team
+      room.teamA = room.teamA.filter(p => p.socketId !== botId);
+      room.teamB = room.teamB.filter(p => p.socketId !== botId);
+
+      // Check if target team is full
+      const targetTeam = team === 'A' ? room.teamA : room.teamB;
+      if (targetTeam.length >= 3) {
+        socket.emit('error', { message: '팀이 가득 찼습니다' });
+        return;
+      }
+
+      // Add to new team
+      const bot = room.players[botIndex];
+      bot.team = team;
+
+      const botData = {
+        socketId: bot.socketId,
+        userId: bot.userId,
+        characterId: bot.characterId,
+        characterName: bot.characterName,
+        isBot: true,
+        character: bot.character,
+        team
+      };
+
+      if (team === 'A') {
+        room.teamA.push(botData);
+      } else {
+        room.teamB.push(botData);
+      }
+
+      // Update player in room.players
+      room.players[botIndex].team = team;
+
+      // Notify all players
+      io.to(room.roomId).emit('team_updated', {
+        teamA: room.teamA,
+        teamB: room.teamB,
+        players: room.players
+      });
+
+      console.log(`[Bot] ${bot.characterName} assigned to team ${team}`);
+    });
+
+    // 14. Ball hit event
     socket.on('ball_hit', (data) => {
       const user = users.get(socket.id);
       if (!user || !user.roomId || !user.team) return;
@@ -618,7 +797,7 @@ function handleSocketConnection(io) {
       console.log(`[Ball] ${user.characterName} hit ball (${data.power})`);
     });
 
-    // 12. Disconnect
+    // 15. Disconnect
     socket.on('disconnect', () => {
       const user = users.get(socket.id);
       if (!user) {

@@ -13,15 +13,29 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
   const players = roomData.players || []
 
   useEffect(() => {
-    // Socket event listeners - only game_started and error
+    // Socket event listeners
     socketService.on('game_started', handleGameStarted)
     socketService.on('error', handleError)
+    socketService.on('bot_added', handleBotAdded)
+    socketService.on('bot_removed', handleBotRemoved)
 
     return () => {
       socketService.off('game_started', handleGameStarted)
       socketService.off('error', handleError)
+      socketService.off('bot_added', handleBotAdded)
+      socketService.off('bot_removed', handleBotRemoved)
     }
   }, [])
+
+  const handleBotAdded = (data) => {
+    console.log('[Room] Bot added:', data)
+    setToast({ message: `${data.bot.characterName}이(가) 참가했습니다`, type: 'success' })
+  }
+
+  const handleBotRemoved = (data) => {
+    console.log('[Room] Bot removed:', data)
+    setToast({ message: '봇이 제거되었습니다', type: 'info' })
+  }
 
   const handleGameStarted = (data) => {
     console.log('[Room] Game started:', data)
@@ -51,6 +65,38 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
 
     setToast({ message: '', type: 'error' })
     socketService.startGame()
+  }
+
+  const handleAddBot = () => {
+    if (!isHost) {
+      setToast({ message: '방장만 봇을 추가할 수 있습니다', type: 'error' })
+      return
+    }
+
+    if (players.length >= 6) {
+      setToast({ message: '방이 가득 찼습니다 (최대 6명)', type: 'error' })
+      return
+    }
+
+    socketService.emit('add_bot')
+  }
+
+  const handleRemoveBot = (botId) => {
+    if (!isHost) {
+      setToast({ message: '방장만 봇을 제거할 수 있습니다', type: 'error' })
+      return
+    }
+
+    socketService.emit('remove_bot', { botId })
+  }
+
+  const handleAssignBotTeam = (botId, team) => {
+    if (!isHost) {
+      setToast({ message: '방장만 봇 팀을 배치할 수 있습니다', type: 'error' })
+      return
+    }
+
+    socketService.emit('assign_bot_team', { botId, team })
   }
 
   // Get current player's team
@@ -109,11 +155,23 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
             {teamA.map((player, index) => (
               <div
                 key={player.socketId}
-                className={`player-card ${player.socketId === mySocketId ? 'me' : ''}`}
+                className={`player-card ${player.socketId === mySocketId ? 'me' : ''} ${player.isBot ? 'bot' : ''}`}
               >
                 <div className="player-avatar">A{index + 1}</div>
-                <div className="player-name">{player.characterName}</div>
+                <div className="player-name">
+                  {player.isBot && <span className="bot-icon">🤖</span>}
+                  {player.characterName}
+                </div>
                 {player.socketId === roomData.host && <span className="host-icon">👑</span>}
+                {isHost && player.isBot && (
+                  <button
+                    className="remove-bot-btn"
+                    onClick={() => handleRemoveBot(player.socketId)}
+                    title="봇 제거"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
             {Array.from({ length: 3 - teamA.length }).map((_, i) => (
@@ -140,11 +198,23 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
             {teamB.map((player, index) => (
               <div
                 key={player.socketId}
-                className={`player-card ${player.socketId === mySocketId ? 'me' : ''}`}
+                className={`player-card ${player.socketId === mySocketId ? 'me' : ''} ${player.isBot ? 'bot' : ''}`}
               >
                 <div className="player-avatar">B{index + 1}</div>
-                <div className="player-name">{player.characterName}</div>
+                <div className="player-name">
+                  {player.isBot && <span className="bot-icon">🤖</span>}
+                  {player.characterName}
+                </div>
                 {player.socketId === roomData.host && <span className="host-icon">👑</span>}
+                {isHost && player.isBot && (
+                  <button
+                    className="remove-bot-btn"
+                    onClick={() => handleRemoveBot(player.socketId)}
+                    title="봇 제거"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             ))}
             {Array.from({ length: 3 - teamB.length }).map((_, i) => (
@@ -170,10 +240,38 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
             {waitingPlayers.map((player) => (
               <div
                 key={player.socketId}
-                className={`waiting-player ${player.socketId === mySocketId ? 'me' : ''}`}
+                className={`waiting-player ${player.socketId === mySocketId ? 'me' : ''} ${player.isBot ? 'bot' : ''}`}
               >
-                <span className="player-name">{player.characterName}</span>
+                <span className="player-name">
+                  {player.isBot && <span className="bot-icon">🤖</span>}
+                  {player.characterName}
+                </span>
                 {player.socketId === roomData.host && <span className="host-icon">👑</span>}
+                {isHost && player.isBot && (
+                  <div className="bot-team-controls">
+                    <button
+                      className="assign-team-btn team-a-btn"
+                      onClick={() => handleAssignBotTeam(player.socketId, 'A')}
+                      disabled={teamA.length >= 3}
+                    >
+                      → Team A
+                    </button>
+                    <button
+                      className="assign-team-btn team-b-btn"
+                      onClick={() => handleAssignBotTeam(player.socketId, 'B')}
+                      disabled={teamB.length >= 3}
+                    >
+                      → Team B
+                    </button>
+                    <button
+                      className="remove-bot-btn-inline"
+                      onClick={() => handleRemoveBot(player.socketId)}
+                      title="봇 제거"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -182,6 +280,19 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
 
       {/* Start game button */}
       <div className="room-footer">
+        {isHost && (
+          <div className="host-controls">
+            <button
+              className="add-bot-btn"
+              onClick={handleAddBot}
+              disabled={players.length >= 6}
+            >
+              🤖 AI 봇 추가
+              {players.length >= 6 && ' (방이 가득참)'}
+            </button>
+          </div>
+        )}
+
         {isHost ? (
           <button
             className="start-game-btn"

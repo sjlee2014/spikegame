@@ -311,6 +311,146 @@
   font-weight: 500;
 }
 
+/* Bot styles */
+.bot-icon {
+  display: inline-block;
+  margin-right: 0.3rem;
+  font-size: 1rem;
+}
+
+.player-card.bot {
+  background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+  border-color: #00bcd4;
+}
+
+.waiting-player.bot {
+  background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+  border-color: #00bcd4;
+  padding: 1rem 1.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.remove-bot-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(255, 77, 77, 0.8);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.player-card:hover .remove-bot-btn {
+  opacity: 1;
+}
+
+.remove-bot-btn:hover {
+  background: #ff4d4d;
+  transform: scale(1.1);
+}
+
+.player-card {
+  position: relative;
+}
+
+.bot-team-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.assign-team-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 0.85rem;
+}
+
+.assign-team-btn.team-a-btn {
+  background: rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.assign-team-btn.team-a-btn:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.assign-team-btn.team-b-btn {
+  background: rgba(118, 75, 162, 0.1);
+  border-color: #764ba2;
+  color: #764ba2;
+}
+
+.assign-team-btn.team-b-btn:hover:not(:disabled) {
+  background: #764ba2;
+  color: white;
+}
+
+.assign-team-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.remove-bot-btn-inline {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 77, 77, 0.1);
+  border: 2px solid #ff4d4d;
+  color: #ff4d4d;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  font-size: 0.85rem;
+}
+
+.remove-bot-btn-inline:hover {
+  background: #ff4d4d;
+  color: white;
+}
+
+/* Host controls */
+.host-controls {
+  margin-bottom: 1rem;
+}
+
+.add-bot-btn {
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.add-bot-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 188, 212, 0.4);
+}
+
+.add-bot-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .room-content {
