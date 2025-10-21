@@ -1,6 +1,7 @@
 // Socket.io event handlers
 const { supabase } = require('../config/supabase');
-const { rooms, users, matchmakingQueue } = require('./gameState');
+const { rooms, users, matchmakingQueue, ballPhysicsInstances, gameIntervals } = require('./gameState');
+const BallPhysics = require('../services/ballPhysics');
 
 // Generate 4-digit room code
 function generateRoomCode() {
@@ -76,6 +77,58 @@ function removeFromMatchmaking(socketId) {
   return false;
 }
 
+// Start ball physics for a room
+function startBallPhysics(io, roomId) {
+  // Create ball physics instance
+  const ballPhysics = new BallPhysics(roomId);
+  ballPhysicsInstances.set(roomId, ballPhysics);
+
+  // Start physics update loop (60fps = ~16ms)
+  const intervalId = setInterval(() => {
+    const scoreEvent = ballPhysics.update();
+
+    // Broadcast ball position to all players
+    io.to(roomId).emit('ball_update', ballPhysics.getBallState());
+
+    // Handle scoring events
+    if (scoreEvent) {
+      io.to(roomId).emit('score_update', scoreEvent);
+
+      // Handle game end
+      if (scoreEvent.gameEnd) {
+        io.to(roomId).emit('game_end', {
+          winner: scoreEvent.winner,
+          finalScore: scoreEvent.score
+        });
+
+        // Stop physics updates
+        stopBallPhysics(roomId);
+
+        // Update room status
+        const room = rooms.get(roomId);
+        if (room) {
+          room.status = 'finished';
+        }
+      }
+    }
+  }, 16); // 60fps
+
+  gameIntervals.set(roomId, intervalId);
+  console.log(`[Ball Physics] Started for room ${roomId}`);
+}
+
+// Stop ball physics for a room
+function stopBallPhysics(roomId) {
+  const intervalId = gameIntervals.get(roomId);
+  if (intervalId) {
+    clearInterval(intervalId);
+    gameIntervals.delete(roomId);
+  }
+
+  ballPhysicsInstances.delete(roomId);
+  console.log(`[Ball Physics] Stopped for room ${roomId}`);
+}
+
 // Remove player from room
 function leaveRoom(io, socket, roomId) {
   const room = rooms.get(roomId);
@@ -99,6 +152,8 @@ function leaveRoom(io, socket, roomId) {
 
   // If room is empty, delete it
   if (room.players.length === 0) {
+    // Stop ball physics if running
+    stopBallPhysics(roomId);
     rooms.delete(roomId);
     console.log(`[Room] ${roomId} deleted (empty)`);
   } else {
@@ -416,6 +471,9 @@ function handleSocketConnection(io) {
 
       room.status = 'in_game';
 
+      // Start ball physics
+      startBallPhysics(io, room.roomId);
+
       io.to(room.roomId).emit('game_started', {
         roomId: room.roomId,
         teamA: room.teamA,
@@ -524,7 +582,43 @@ function handleSocketConnection(io) {
       });
     });
 
-    // 11. Disconnect
+    // 11. Ball hit event
+    socket.on('ball_hit', (data) => {
+      const user = users.get(socket.id);
+      if (!user || !user.roomId || !user.team) return;
+
+      const room = rooms.get(user.roomId);
+      if (!room || room.status !== 'in_game') return;
+
+      const ballPhysics = ballPhysicsInstances.get(room.roomId);
+      if (!ballPhysics) return;
+
+      // Process ball hit
+      const scoreEvent = ballPhysics.hitBall(socket.id, user.team, {
+        power: data.power, // 'toss' or 'spike'
+        direction: data.direction,
+        gauge: data.gauge
+      });
+
+      // If there's a scoring event (e.g., 3-touch violation)
+      if (scoreEvent) {
+        io.to(room.roomId).emit('score_update', scoreEvent);
+
+        if (scoreEvent.gameEnd) {
+          io.to(room.roomId).emit('game_end', {
+            winner: scoreEvent.winner,
+            finalScore: scoreEvent.score
+          });
+
+          stopBallPhysics(room.roomId);
+          room.status = 'finished';
+        }
+      }
+
+      console.log(`[Ball] ${user.characterName} hit ball (${data.power})`);
+    });
+
+    // 12. Disconnect
     socket.on('disconnect', () => {
       const user = users.get(socket.id);
       if (!user) {

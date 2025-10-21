@@ -26,14 +26,15 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
   const PLAYER_JUMP_POWER = -12;
   const DIVE_SPEED = 3;
 
-  // 공 상태 (useRef로 관리하여 리렌더링 방지)
+  // 공 상태 (서버에서 받은 데이터로 렌더링)
   const ballRef = useRef({
     x: CANVAS_WIDTH / 2,
-    y: 100, // 중앙 상단
+    y: 100,
+    targetX: CANVAS_WIDTH / 2,
+    targetY: 100,
     velocityX: 0,
     velocityY: 0,
-    radius: BALL_RADIUS,
-    prevSide: 'right' // 이전 프레임에 어느 코트에 있었는지 ('left' or 'right')
+    radius: BALL_RADIUS
   });
 
   // 캐릭터 상태 (로컬 플레이어)
@@ -74,30 +75,10 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
     gauge: 0
   });
 
-  // 공 터치 상태
+  // 공 터치 가능 여부 (연속 터치 방지용)
   const ballTouchRef = useRef({
-    lastTeam: null, // 'A' or 'B'
-    touchCount: 0,
-    canTouch: true // 연속 터치 방지
+    canTouch: true
   });
-
-  // 공 초기화 함수
-  const resetBall = () => {
-    ballRef.current = {
-      x: CANVAS_WIDTH / 2,
-      y: 100,
-      velocityX: Math.random() * 4 - 2, // -2 ~ 2 사이 랜덤
-      velocityY: 0,
-      radius: BALL_RADIUS,
-      prevSide: 'right'
-    };
-    // 터치 카운트 초기화
-    ballTouchRef.current = {
-      lastTeam: null,
-      touchCount: 0,
-      canTouch: true
-    };
-  };
 
   // 공과 플레이어 충돌 감지
   const checkBallPlayerCollision = () => {
@@ -116,71 +97,37 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
     return distance < 40; // 40px 이내면 충돌
   };
 
-  // 공 치기 (토스 또는 스파이크)
+  // 공 치기 (서버에 요청)
   const hitBall = (power) => {
-    const ball = ballRef.current;
     const player = playerRef.current;
     const ballTouch = ballTouchRef.current;
 
-    // 터치 카운트 체크 (3번 제한)
-    const currentTeam = 'A'; // TODO: 나중에 팀 구분
-    if (ballTouch.lastTeam === currentTeam) {
-      ballTouch.touchCount++;
-      if (ballTouch.touchCount > 3) {
-        // 3번 넘게 터치하면 상대 득점
-        console.log('3번 터치 제한 위반!');
-        return;
-      }
-    } else {
-      ballTouch.lastTeam = currentTeam;
-      ballTouch.touchCount = 1;
-    }
+    if (!ballTouch.canTouch) return;
 
     // 플레이어 방향에 따라 공 방향 결정
     const direction = player.facingRight ? 1 : -1;
+    const gauge = spaceKeyRef.current.gauge;
 
-    if (power === 'toss') {
-      // 토스: 위쪽으로 부드럽게
-      ball.velocityX = direction * 2;
-      ball.velocityY = -8;
-      // Emit toss action
-      socketService.emit('player_action', {
-        action: 'toss',
-        data: { direction }
-      });
-    } else {
-      // 스파이크: 게이지에 따라 파워 결정
-      const gauge = spaceKeyRef.current.gauge;
-
-      if (gauge > 100) {
-        // 게이지 폭발 (실패)
-        console.log('게이지 폭발!');
-        spaceKeyRef.current.isCharging = false;
-        spaceKeyRef.current.gauge = 0;
-        return;
-      }
-
-      let velocityMultiplier;
-      if (gauge <= 50) {
-        // 약한 공격
-        velocityMultiplier = 0.5;
-      } else if (gauge <= 80) {
-        // 중간 공격
-        velocityMultiplier = 1.0;
-      } else {
-        // 강력한 스파이크
-        velocityMultiplier = 1.5;
-      }
-
-      ball.velocityX = direction * 10 * velocityMultiplier;
-      ball.velocityY = -5 * velocityMultiplier;
-
-      // Emit spike action
-      socketService.emit('player_action', {
-        action: 'spike',
-        data: { direction, gauge, power: velocityMultiplier }
-      });
+    // 게이지 폭발 체크 (스파이크인 경우)
+    if (power === 'spike' && gauge > 100) {
+      console.log('게이지 폭발!');
+      spaceKeyRef.current.isCharging = false;
+      spaceKeyRef.current.gauge = 0;
+      return;
     }
+
+    // 서버에 ball_hit 이벤트 전송
+    socketService.emit('ball_hit', {
+      power, // 'toss' or 'spike'
+      direction,
+      gauge: power === 'spike' ? gauge : 0
+    });
+
+    // 액션 이벤트도 전송 (시각 효과용)
+    socketService.emit('player_action', {
+      action: power,
+      data: { direction, gauge }
+    });
 
     // 터치 후 잠시 대기 (연속 터치 방지)
     ballTouch.canTouch = false;
@@ -189,109 +136,15 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
     }, 300);
   };
 
-  // 공 물리 업데이트
+  // 공 업데이트 (서버 데이터 보간)
   const updateBall = () => {
     const ball = ballRef.current;
-    const netX = CANVAS_WIDTH / 2;
+    const interpolationSpeed = 0.5; // 보간 속도
 
-    // 네트를 넘어갔는지 체크 (터치 카운트 리셋용)
-    const currentSide = ball.x < netX ? 'left' : 'right';
-    if (currentSide !== ball.prevSide) {
-      // 네트를 넘어감 - 터치 카운트 리셋
-      ballTouchRef.current.lastTeam = null;
-      ballTouchRef.current.touchCount = 0;
-      ball.prevSide = currentSide;
-    }
-
-    // 중력 적용
-    ball.velocityY += GRAVITY;
-
-    // 위치 업데이트
-    ball.x += ball.velocityX;
-    ball.y += ball.velocityY;
-
-    // 벽 충돌 (좌우)
-    if (ball.x - ball.radius < 0) {
-      ball.x = ball.radius;
-      ball.velocityX *= -0.8;
-    } else if (ball.x + ball.radius > CANVAS_WIDTH) {
-      ball.x = CANVAS_WIDTH - ball.radius;
-      ball.velocityX *= -0.8;
-    }
-
-    // 천장 충돌
-    if (ball.y - ball.radius < 0) {
-      ball.y = ball.radius;
-      ball.velocityY *= -0.5;
-    }
-
-    // 바닥 충돌 및 득점 처리
-    const floorY = CANVAS_HEIGHT - FLOOR_HEIGHT;
-    if (ball.y + ball.radius >= floorY) {
-      ball.y = floorY - ball.radius;
-
-      // 득점 처리
-      handleScore();
-
-      // 튕김
-      if (Math.abs(ball.velocityY) > 1) {
-        ball.velocityY *= -BOUNCE_DAMPING;
-      } else {
-        ball.velocityY = 0;
-      }
-
-      // 마찰력
-      ball.velocityX *= 0.9;
-    }
-
-    // 네트 충돌
-    checkNetCollision();
-  };
-
-  // 네트 충돌 체크
-  const checkNetCollision = () => {
-    const ball = ballRef.current;
-    const netX = CANVAS_WIDTH / 2;
-    const netY = CANVAS_HEIGHT - FLOOR_HEIGHT - NET_HEIGHT;
-    const netWidth = 30; // 네트 충돌 범위
-
-    // 공이 네트 영역에 있는지 확인
-    if (
-      ball.x + ball.radius > netX - netWidth / 2 &&
-      ball.x - ball.radius < netX + netWidth / 2 &&
-      ball.y + ball.radius > netY &&
-      ball.y - ball.radius < netY + NET_HEIGHT
-    ) {
-      // 네트 좌측 또는 우측에서 충돌
-      if (ball.velocityX > 0) {
-        ball.x = netX - netWidth / 2 - ball.radius;
-      } else {
-        ball.x = netX + netWidth / 2 + ball.radius;
-      }
-      ball.velocityX *= -0.5;
-    }
-  };
-
-  // 득점 처리
-  const handleScore = () => {
-    const ball = ballRef.current;
-    const floorY = CANVAS_HEIGHT - FLOOR_HEIGHT;
-
-    // 공이 바닥에 닿았을 때만 처리
-    if (ball.y + ball.radius >= floorY) {
-      // 왼쪽 코트 (Team A): Team B 득점
-      if (ball.x < CANVAS_WIDTH / 2) {
-        setScore(prev => ({ ...prev, teamB: prev.teamB + 1 }));
-      }
-      // 오른쪽 코트 (Team B): Team A 득점
-      else {
-        setScore(prev => ({ ...prev, teamA: prev.teamA + 1 }));
-      }
-
-      // 득점 후 잠시 대기 후 공 리셋
-      setTimeout(() => {
-        resetBall();
-      }, 1000);
+    if (ball.targetX !== undefined && ball.targetY !== undefined) {
+      // 서버에서 받은 위치로 부드럽게 이동
+      ball.x += (ball.targetX - ball.x) * interpolationSpeed;
+      ball.y += (ball.targetY - ball.y) * interpolationSpeed;
     }
   };
 
@@ -955,7 +808,6 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
     const handlePlayerAction = (data) => {
       console.log(`[Game] Player ${data.socketId} action: ${data.action}`, data.data);
       // TODO: Add visual effects for actions
-      // For now, just log the action
     };
 
     // Listen for player leaving
@@ -965,14 +817,49 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
       console.log(`[Game] Player ${data.socketId} left the game`);
     };
 
+    // Listen for ball updates from server
+    const handleBallUpdate = (data) => {
+      const ball = ballRef.current;
+      ball.targetX = data.x;
+      ball.targetY = data.y;
+      ball.velocityX = data.velocityX;
+      ball.velocityY = data.velocityY;
+    };
+
+    // Listen for score updates
+    const handleScoreUpdate = (data) => {
+      console.log('[Game] Score update:', data);
+      setScore(data.score);
+
+      // Show scoring reason
+      if (data.reason === 'ball_landed') {
+        console.log(`Team ${data.scoringTeam} scored! (Ball landed)`);
+      } else if (data.reason === 'three_touch_violation') {
+        console.log(`Team ${data.scoringTeam} scored! (3-touch violation)`);
+      }
+    };
+
+    // Listen for game end
+    const handleGameEnd = (data) => {
+      console.log('[Game] Game ended! Winner:', data.winner);
+      alert(`Game Over! Team ${data.winner} wins!\nFinal Score: ${data.finalScore.teamA} - ${data.finalScore.teamB}`);
+      // TODO: Show proper game end screen
+    };
+
     socketService.on('player_moved', handlePlayerMoved);
     socketService.on('player_action', handlePlayerAction);
     socketService.on('player_left', handlePlayerLeft);
+    socketService.on('ball_update', handleBallUpdate);
+    socketService.on('score_update', handleScoreUpdate);
+    socketService.on('game_end', handleGameEnd);
 
     return () => {
       socketService.off('player_moved', handlePlayerMoved);
       socketService.off('player_action', handlePlayerAction);
       socketService.off('player_left', handlePlayerLeft);
+      socketService.off('ball_update', handleBallUpdate);
+      socketService.off('score_update', handleScoreUpdate);
+      socketService.off('game_end', handleGameEnd);
     };
   }, []);
 

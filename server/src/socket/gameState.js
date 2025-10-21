@@ -9,8 +9,16 @@ const users = new Map();
 // Matchmaking queue
 const matchmakingQueue = [];
 
+// Ball physics instances (roomId -> BallPhysics)
+const ballPhysicsInstances = new Map();
+
+// Game update intervals (roomId -> intervalId)
+const gameIntervals = new Map();
+
 module.exports = {
   rooms,
   users,
-  matchmakingQueue
+  matchmakingQueue,
+  ballPhysicsInstances,
+  gameIntervals
 };
