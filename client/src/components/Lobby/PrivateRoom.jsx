@@ -16,26 +16,12 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
     // Socket event listeners
     socketService.on('game_started', handleGameStarted)
     socketService.on('error', handleError)
-    socketService.on('bot_added', handleBotAdded)
-    socketService.on('bot_removed', handleBotRemoved)
 
     return () => {
       socketService.off('game_started', handleGameStarted)
       socketService.off('error', handleError)
-      socketService.off('bot_added', handleBotAdded)
-      socketService.off('bot_removed', handleBotRemoved)
     }
   }, [])
-
-  const handleBotAdded = (data) => {
-    console.log('[Room] Bot added:', data)
-    setToast({ message: `${data.bot.characterName}이(가) 참가했습니다`, type: 'success' })
-  }
-
-  const handleBotRemoved = (data) => {
-    console.log('[Room] Bot removed:', data)
-    setToast({ message: '봇이 제거되었습니다', type: 'info' })
-  }
 
   const handleGameStarted = (data) => {
     console.log('[Room] Game started:', data)

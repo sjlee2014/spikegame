@@ -22,6 +22,8 @@ export function Lobby({ user, character, onLogout }) {
     socketService.on('team_updated', handleTeamUpdated)
     socketService.on('host_changed', handleHostChanged)
     socketService.on('matchmaking_left', handleMatchmakingLeft)
+    socketService.on('bot_added', handleBotAdded)
+    socketService.on('bot_removed', handleBotRemoved)
     socketService.on('error', handleError)
 
     return () => {
@@ -34,6 +36,8 @@ export function Lobby({ user, character, onLogout }) {
       socketService.off('team_updated', handleTeamUpdated)
       socketService.off('host_changed', handleHostChanged)
       socketService.off('matchmaking_left', handleMatchmakingLeft)
+      socketService.off('bot_added', handleBotAdded)
+      socketService.off('bot_removed', handleBotRemoved)
       socketService.off('error', handleError)
     }
   }, [])
@@ -93,6 +97,21 @@ export function Lobby({ user, character, onLogout }) {
   const handleHostChanged = (data) => {
     console.log('[Lobby] Host changed:', data)
     setRoomData(prev => prev ? ({ ...prev, host: data.newHost }) : prev)
+  }
+
+  const handleBotAdded = (data) => {
+    console.log('[Lobby] Bot added:', data)
+    setRoomData(prev => prev ? ({ ...prev, players: data.players }) : prev)
+  }
+
+  const handleBotRemoved = (data) => {
+    console.log('[Lobby] Bot removed:', data)
+    setRoomData(prev => prev ? ({
+      ...prev,
+      players: data.players,
+      teamA: data.teamA,
+      teamB: data.teamB
+    }) : prev)
   }
 
   const handleMatchmakingLeft = () => {
