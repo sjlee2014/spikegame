@@ -82,6 +82,16 @@ const socketService = {
     socket.emit('leave_room');
   },
 
+  // Send player movement
+  sendPlayerMove(data) {
+    socket.emit('player_move', data);
+  },
+
+  // Send player action
+  sendPlayerAction(action, data) {
+    socket.emit('player_action', { action, data });
+  },
+
   // Generic emit
   emit(event, data) {
     socket.emit(event, data);

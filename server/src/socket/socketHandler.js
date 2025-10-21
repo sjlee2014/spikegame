@@ -488,7 +488,43 @@ function handleSocketConnection(io) {
       socket.emit('room_left', { success: true });
     });
 
-    // 9. Disconnect
+    // 9. Player movement sync
+    socket.on('player_move', (data) => {
+      const user = users.get(socket.id);
+      if (!user || !user.roomId) return;
+
+      const room = rooms.get(user.roomId);
+      if (!room || room.status !== 'in_game') return;
+
+      // Broadcast movement to other players in the room
+      socket.to(room.roomId).emit('player_moved', {
+        socketId: socket.id,
+        x: data.x,
+        y: data.y,
+        velocityX: data.velocityX,
+        velocityY: data.velocityY,
+        facingRight: data.facingRight,
+        isGrounded: data.isGrounded
+      });
+    });
+
+    // 10. Player action sync (jump, dive, toss, spike)
+    socket.on('player_action', (data) => {
+      const user = users.get(socket.id);
+      if (!user || !user.roomId) return;
+
+      const room = rooms.get(user.roomId);
+      if (!room || room.status !== 'in_game') return;
+
+      // Broadcast action to other players in the room
+      socket.to(room.roomId).emit('player_action', {
+        socketId: socket.id,
+        action: data.action, // 'jump', 'dive', 'toss', 'spike'
+        data: data.data // Additional data (e.g., spike power)
+      });
+    });
+
+    // 11. Disconnect
     socket.on('disconnect', () => {
       const user = users.get(socket.id);
       if (!user) {
