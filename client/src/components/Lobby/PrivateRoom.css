@@ -1,0 +1,356 @@
+.private-room-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.room-header {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.room-info h1 {
+  color: #333;
+  margin: 0;
+}
+
+.room-code-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+}
+
+.code-label {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.code-value {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.host-badge {
+  background: #ffd700;
+  color: #333;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.room-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.leave-btn,
+.logout-btn-room {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.leave-btn {
+  background: rgba(255, 77, 77, 0.1);
+  border: 2px solid #ff4d4d;
+  color: #ff4d4d;
+}
+
+.leave-btn:hover {
+  background: #ff4d4d;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.logout-btn-room {
+  background: rgba(0, 0, 0, 0.05);
+  border: 2px solid #666;
+  color: #666;
+}
+
+.logout-btn-room:hover {
+  background: #666;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Room content */
+.room-content {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.team-section {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.team-section h2 {
+  text-align: center;
+  margin: 0 0 1.5rem 0;
+  color: #333;
+}
+
+.team-a h2 {
+  color: #667eea;
+}
+
+.team-b h2 {
+  color: #764ba2;
+}
+
+.team-players {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  min-height: 300px;
+}
+
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  transition: all 0.3s;
+}
+
+.player-card.me {
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  border-color: #667eea;
+  font-weight: 600;
+}
+
+.player-card.empty {
+  opacity: 0.4;
+}
+
+.player-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.player-card.empty .player-avatar {
+  background: #ddd;
+  color: #999;
+}
+
+.player-name {
+  flex: 1;
+  color: #333;
+}
+
+.host-icon {
+  font-size: 1.2rem;
+}
+
+.team-join-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.team-join-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+/* VS divider */
+.vs-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Waiting section */
+.waiting-section {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.waiting-section h3 {
+  color: #333;
+  margin: 0 0 1rem 0;
+}
+
+.waiting-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.waiting-player {
+  padding: 0.75rem 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 2px solid transparent;
+}
+
+.waiting-player.me {
+  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+  border-color: #667eea;
+  font-weight: 600;
+}
+
+/* Room footer */
+.room-footer {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.start-game-btn {
+  width: 100%;
+  max-width: 500px;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.start-game-btn:not(:disabled):hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+}
+
+.start-game-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.waiting-host {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Game starting */
+.game-starting {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+.game-starting h1 {
+  font-size: 3rem;
+  margin-bottom: 2rem;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Error message */
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #fcc;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .room-content {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
+  .vs-divider {
+    order: 1;
+    font-size: 2rem;
+    padding: 1rem 0;
+  }
+
+  .team-a {
+    order: 0;
+  }
+
+  .team-b {
+    order: 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .room-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .room-info {
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .room-actions {
+    width: 100%;
+  }
+
+  .leave-btn,
+  .logout-btn-room {
+    flex: 1;
+  }
+}
