@@ -15,10 +15,14 @@ const ballPhysicsInstances = new Map();
 // Game update intervals (roomId -> intervalId)
 const gameIntervals = new Map();
 
+// Bot AI instances (roomId -> Array of BotAI)
+const botAIInstances = new Map();
+
 module.exports = {
   rooms,
   users,
   matchmakingQueue,
   ballPhysicsInstances,
-  gameIntervals
+  gameIntervals,
+  botAIInstances
 };

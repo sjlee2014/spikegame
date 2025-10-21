@@ -1,7 +1,8 @@
 // Socket.io event handlers
 const { supabase } = require('../config/supabase');
-const { rooms, users, matchmakingQueue, ballPhysicsInstances, gameIntervals } = require('./gameState');
+const { rooms, users, matchmakingQueue, ballPhysicsInstances, gameIntervals, botAIInstances } = require('./gameState');
 const BallPhysics = require('../services/ballPhysics');
+const BotAI = require('../services/gameBot');
 
 // Generate 4-digit room code
 function generateRoomCode() {
@@ -93,18 +94,71 @@ function removeFromMatchmaking(socketId) {
   return false;
 }
 
+// Initialize bot AI for a room
+function initializeBotAI(io, roomId, ballPhysics) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+
+  const bots = [];
+
+  // Find all bots in the room
+  [...room.teamA, ...room.teamB].forEach(player => {
+    if (player.isBot) {
+      const botAI = new BotAI(player, player.team, io, roomId, ballPhysics);
+      bots.push(botAI);
+    }
+  });
+
+  if (bots.length > 0) {
+    botAIInstances.set(roomId, bots);
+    console.log(`[BotAI] Initialized ${bots.length} bots for room ${roomId}`);
+  }
+}
+
+// Update bot AI
+function updateBotAI(roomId, ball, currentTime) {
+  const bots = botAIInstances.get(roomId);
+  if (!bots) return;
+
+  bots.forEach(bot => {
+    bot.update(ball, currentTime);
+  });
+}
+
+// Stop bot AI
+function stopBotAI(roomId) {
+  const bots = botAIInstances.get(roomId);
+  if (bots) {
+    bots.forEach(bot => bot.destroy());
+    botAIInstances.delete(roomId);
+    console.log(`[BotAI] Stopped for room ${roomId}`);
+  }
+}
+
 // Start ball physics for a room
 function startBallPhysics(io, roomId) {
   // Create ball physics instance
   const ballPhysics = new BallPhysics(roomId);
   ballPhysicsInstances.set(roomId, ballPhysics);
 
+  // Initialize bot AI with ballPhysics reference
+  initializeBotAI(io, roomId, ballPhysics);
+
+  let lastTime = Date.now();
+
   // Start physics update loop (60fps = ~16ms)
   const intervalId = setInterval(() => {
+    const currentTime = Date.now();
     const scoreEvent = ballPhysics.update();
 
+    // Get current ball state
+    const ball = ballPhysics.getBallState();
+
+    // Update bot AI
+    updateBotAI(roomId, ball, currentTime);
+
     // Broadcast ball position to all players
-    io.to(roomId).emit('ball_update', ballPhysics.getBallState());
+    io.to(roomId).emit('ball_update', ball);
 
     // Handle scoring events
     if (scoreEvent) {
@@ -117,8 +171,9 @@ function startBallPhysics(io, roomId) {
           finalScore: scoreEvent.score
         });
 
-        // Stop physics updates
+        // Stop physics updates and bot AI
         stopBallPhysics(roomId);
+        stopBotAI(roomId);
 
         // Update room status
         const room = rooms.get(roomId);
@@ -127,6 +182,8 @@ function startBallPhysics(io, roomId) {
         }
       }
     }
+
+    lastTime = currentTime;
   }, 16); // 60fps
 
   gameIntervals.set(roomId, intervalId);
@@ -142,6 +199,7 @@ function stopBallPhysics(roomId) {
   }
 
   ballPhysicsInstances.delete(roomId);
+  stopBotAI(roomId); // Also stop bot AI
   console.log(`[Ball Physics] Stopped for room ${roomId}`);
 }
 
@@ -487,7 +545,7 @@ function handleSocketConnection(io) {
 
       room.status = 'in_game';
 
-      // Start ball physics
+      // Start ball physics (this will also initialize bot AI)
       startBallPhysics(io, room.roomId);
 
       io.to(room.roomId).emit('game_started', {
