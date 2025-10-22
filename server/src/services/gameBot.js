@@ -3,7 +3,7 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const FLOOR_HEIGHT = 100;
 const PLAYER_MOVE_SPEED = 5;
-const GRAVITY = 0.5;
+const GRAVITY = 0.6; // Match ball physics gravity
 
 class BotAI {
   constructor(botPlayer, team, io, roomId, ballPhysics) {
@@ -21,10 +21,10 @@ class BotAI {
     this.isGrounded = true;
     this.facingRight = team === 'A';
 
-    // AI settings (medium difficulty)
-    this.reactionDelay = 250; // ms
-    this.predictionAccuracy = 0.75; // 75% accurate
-    this.mistakeProbability = 0.20; // 20% chance to make mistake
+    // AI settings (improved for better gameplay)
+    this.reactionDelay = 150; // ms - quicker reactions
+    this.predictionAccuracy = 0.85; // 85% accurate
+    this.mistakeProbability = 0.10; // 10% chance to make mistake
 
     // AI state
     this.lastDecisionTime = 0;
@@ -107,50 +107,47 @@ class BotAI {
 
   // Make AI decision
   update(ball, currentTime) {
-    // Reaction delay
-    if (currentTime - this.lastDecisionTime < this.reactionDelay) {
-      return;
-    }
+    // Make decision with reaction delay
+    if (currentTime - this.lastDecisionTime >= this.reactionDelay) {
+      this.lastDecisionTime = currentTime;
 
-    this.lastDecisionTime = currentTime;
-
-    // Random mistake check
-    if (Math.random() < this.mistakeProbability) {
-      // Make a mistake - do nothing or move wrong direction
-      if (Math.random() < 0.5) {
-        this.targetX = this.x + (Math.random() - 0.5) * 100;
-        this.targetX = Math.max(this.courtLeft, Math.min(this.courtRight, this.targetX));
-      }
-      return;
-    }
-
-    const distance = this.getDistanceToBall(ball);
-    const ballOnMyCourt = this.isBallOnMyCourt(ball);
-
-    if (ballOnMyCourt) {
-      // Ball is on my court - go get it!
-      const prediction = this.predictBallLanding(ball);
-
-      if (prediction && prediction.isOnMyCourt) {
-        // Move to predicted landing position
-        this.targetX = prediction.x;
-        this.targetX = Math.max(this.courtLeft, Math.min(this.courtRight, this.targetX));
+      // Random mistake check
+      if (Math.random() < this.mistakeProbability) {
+        // Make a mistake - do nothing or move wrong direction
+        if (Math.random() < 0.5) {
+          this.targetX = this.x + (Math.random() - 0.5) * 100;
+          this.targetX = Math.max(this.courtLeft, Math.min(this.courtRight, this.targetX));
+        }
       } else {
-        // Move towards ball
-        this.targetX = ball.x;
-        this.targetX = Math.max(this.courtLeft, Math.min(this.courtRight, this.targetX));
-      }
+        const distance = this.getDistanceToBall(ball);
+        const ballOnMyCourt = this.isBallOnMyCourt(ball);
 
-      // Try to hit ball if close enough
-      if (distance < 50 && currentTime - this.lastActionTime > 500) {
-        this.tryHitBall(ball, currentTime);
+        if (ballOnMyCourt) {
+          // Ball is on my court - go get it!
+          const prediction = this.predictBallLanding(ball);
+
+          if (prediction && prediction.isOnMyCourt) {
+            // Move to predicted landing position
+            this.targetX = prediction.x;
+            this.targetX = Math.max(this.courtLeft, Math.min(this.courtRight, this.targetX));
+          } else {
+            // Move towards ball
+            this.targetX = ball.x;
+            this.targetX = Math.max(this.courtLeft, Math.min(this.courtRight, this.targetX));
+          }
+
+          // Try to hit ball if close enough (increased range)
+          if (distance < 80 && currentTime - this.lastActionTime > 400) {
+            this.tryHitBall(ball, currentTime);
+          }
+        } else {
+          // Ball is on opponent's court - return to center
+          this.targetX = this.courtCenter;
+        }
       }
-    } else {
-      // Ball is on opponent's court - return to center
-      this.targetX = this.courtCenter;
     }
 
-    // Update movement
+    // Always update movement every frame (physics and emit)
     this.updateMovement();
   }
 

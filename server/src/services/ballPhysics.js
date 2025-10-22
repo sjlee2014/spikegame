@@ -4,8 +4,9 @@ const CANVAS_HEIGHT = 600;
 const NET_HEIGHT = 150;
 const FLOOR_HEIGHT = 100;
 const BALL_RADIUS = 15;
-const GRAVITY = 0.5;
+const GRAVITY = 0.6; // Increased for more realistic fall
 const BOUNCE_DAMPING = 0.7;
+const AIR_RESISTANCE = 0.99; // 1% air resistance per frame
 
 class BallPhysics {
   constructor(roomId) {
@@ -69,6 +70,10 @@ class BallPhysics {
 
     // Apply gravity
     ball.velocityY += GRAVITY;
+
+    // Apply air resistance
+    ball.velocityX *= AIR_RESISTANCE;
+    ball.velocityY *= AIR_RESISTANCE;
 
     // Update position
     ball.x += ball.velocityX;
@@ -227,24 +232,26 @@ class BallPhysics {
     const dir = direction || 1;
 
     if (power === 'toss') {
-      ball.velocityX = dir * 2;
-      ball.velocityY = -8;
+      // Gentle toss - easier to receive
+      ball.velocityX = dir * 3;
+      ball.velocityY = -10;
     } else if (power === 'spike') {
       let velocityMultiplier = 1.0;
 
       if (gauge <= 50) {
-        velocityMultiplier = 0.5;
+        velocityMultiplier = 0.6; // Weak spike
       } else if (gauge <= 80) {
-        velocityMultiplier = 1.0;
+        velocityMultiplier = 0.9; // Medium spike
       } else if (gauge <= 100) {
-        velocityMultiplier = 1.5;
+        velocityMultiplier = 1.2; // Strong spike
       } else {
         // Gauge overload - weak hit
-        velocityMultiplier = 0.3;
+        velocityMultiplier = 0.4;
       }
 
-      ball.velocityX = dir * 10 * velocityMultiplier;
-      ball.velocityY = -5 * velocityMultiplier;
+      // Reduced spike velocity for easier gameplay
+      ball.velocityX = dir * 7 * velocityMultiplier;
+      ball.velocityY = -6 * velocityMultiplier;
     }
 
     return null; // No scoring event from hit
