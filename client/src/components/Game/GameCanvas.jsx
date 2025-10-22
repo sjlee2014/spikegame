@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import socketService from '../../services/socket';
 import { throttle } from '../../utils/throttle';
 
-const GameCanvas = ({ roomId, players, onLeaveGame }) => {
+const GameCanvas = ({ roomId, players, myTeam, onLeaveGame }) => {
   const canvasRef = useRef(null);
-  const navigate = useNavigate();
   const animationFrameRef = useRef(null);
 
   const [score, setScore] = useState({ teamA: 0, teamB: 0 });
@@ -38,8 +36,10 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
   });
 
   // 캐릭터 상태 (로컬 플레이어)
+  // Team A는 왼쪽 코트 (10~390), Team B는 오른쪽 코트 (410~790)
+  const initialX = myTeam === 'A' ? 200 : 600;
   const playerRef = useRef({
-    x: 200, // 왼쪽 코트 시작 위치
+    x: initialX,
     y: CANVAS_HEIGHT - FLOOR_HEIGHT - PLAYER_HEIGHT,
     velocityX: 0,
     velocityY: 0,
@@ -47,7 +47,8 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
     width: PLAYER_WIDTH,
     height: PLAYER_HEIGHT,
     facingRight: true,
-    animationFrame: 0
+    animationFrame: 0,
+    team: myTeam
   });
 
   // 원격 플레이어 상태 (다른 플레이어들)
@@ -275,10 +276,19 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
       player.isGrounded = false;
     }
 
-    // 코트 경계 제한 (네트를 넘지 못함)
+    // 코트 경계 제한 (네트를 넘지 못함, 팀별로 다른 영역)
     const netX = CANVAS_WIDTH / 2;
-    const leftBoundary = 10;
-    const rightBoundary = netX - 40; // 네트 앞에서 멈춤
+    let leftBoundary, rightBoundary;
+
+    if (myTeam === 'A') {
+      // Team A: 왼쪽 코트 (10 ~ 360)
+      leftBoundary = 10;
+      rightBoundary = netX - 40; // 네트 앞에서 멈춤
+    } else {
+      // Team B: 오른쪽 코트 (440 ~ 790)
+      leftBoundary = netX + 40; // 네트 뒤에서 시작
+      rightBoundary = CANVAS_WIDTH - 10;
+    }
 
     if (player.x < leftBoundary) {
       player.x = leftBoundary;
@@ -706,8 +716,6 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
         if (window.confirm('게임을 나가시겠습니까?')) {
           if (onLeaveGame) {
             onLeaveGame();
-          } else {
-            navigate('/lobby');
           }
         }
         return;
@@ -769,10 +777,16 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [navigate, onLeaveGame]);
+  }, [onLeaveGame]);
 
   // Socket event listeners for multiplayer sync
   useEffect(() => {
+    // Listen for game started (initialize game state)
+    const handleGameStarted = (data) => {
+      console.log('[GameCanvas] Game started event received:', data);
+      // Game state is already initialized, just log
+    };
+
     // Listen for other players' movements
     const handlePlayerMoved = (data) => {
       const remotePlayers = remotePlayersRef.current;
@@ -846,6 +860,7 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
       // TODO: Show proper game end screen
     };
 
+    socketService.on('game_started', handleGameStarted);
     socketService.on('player_moved', handlePlayerMoved);
     socketService.on('player_action', handlePlayerAction);
     socketService.on('player_left', handlePlayerLeft);
@@ -854,6 +869,7 @@ const GameCanvas = ({ roomId, players, onLeaveGame }) => {
     socketService.on('game_end', handleGameEnd);
 
     return () => {
+      socketService.off('game_started', handleGameStarted);
       socketService.off('player_moved', handlePlayerMoved);
       socketService.off('player_action', handlePlayerAction);
       socketService.off('player_left', handlePlayerLeft);

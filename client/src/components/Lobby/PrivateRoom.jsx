@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import socketService from '../../services/socket'
 import { Toast } from '../Common/Toast'
+import GameCanvas from '../Game/GameCanvas'
 import './PrivateRoom.css'
 
 export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
@@ -95,12 +96,12 @@ export function PrivateRoom({ roomData, user, character, onLeave, onLogout }) {
 
   if (gameStarted) {
     return (
-      <div className="private-room-container">
-        <div className="game-starting">
-          <h1>게임이 시작됩니다!</h1>
-          <div className="loading-spinner-large"></div>
-        </div>
-      </div>
+      <GameCanvas
+        roomId={roomData.roomId}
+        players={roomData.players}
+        myTeam={myTeam}
+        onLeaveGame={onLeave}
+      />
     )
   }
 
